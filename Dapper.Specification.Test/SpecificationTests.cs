@@ -11,7 +11,7 @@ namespace Dapper.Specification.Test
         public class Product
         {
             public int Id { get; set; }
-            public string Name { get; set; }
+            public string? Name { get; set; }
         }
 
         public class ProductSpec : Specification<Product>
@@ -47,7 +47,8 @@ namespace Dapper.Specification.Test
             public static Specification<Product> Specs(Func<Query> func) => new ConcreteSpec<Product>().WithQuery(func);
             public static Specification<Product> Inline(Func<Query,Query> func) => new ConcreteSpec<Product>().WithQuery(func);
 
-            //public Specification<Product> ByName => new ConcreteSpec<Product>().WithQuery((string name) => Spec.Where(nameof(Product.Name), name));
+            // ByName takes a string parameter and returns a query using a ConcreteSpec of Product
+            public Specification<Product> ByName(string name) => Specs(() => Spec.Where(nameof(Product.Name), name));
             //public Specification<Product> ById => Specs((int id) => Spec.Where(nameof(Product.Id), id));
             private Func<Query, Query> byId = (Query q) => q.Where(nameof(Product.Id), 1);
 
@@ -62,7 +63,7 @@ namespace Dapper.Specification.Test
         [Fact]
         public void CreateInlineSpec()
         {
-            var productQuery = new Query(nameof(Product)).Where(ProductSpecification.ById);//.Select("Id", "Name");
+            var productQuery = new Query(nameof(Product)).Where(ProductSpecification.ById).Select("Id", "Name");
             var query = Compile(productQuery);
             query[EngineCodes.SqlServer].Should().BeEquivalentTo("SELECT [Id], [Name] FROM [Product] WHERE ([Id] = 1)");
         }
@@ -83,17 +84,17 @@ namespace Dapper.Specification.Test
             var byProductId = new ProductSpec(1);
             var productQuery = new Query(nameof(Product)).Where(byProductId);
             var query = Compile(productQuery);
-            query.Should().BeEquivalentTo("SELECT [id], [name] FROM [Product] WHERE [Id] = 1");
+            query[EngineCodes.SqlServer].Should().BeEquivalentTo("SELECT * FROM [Product] WHERE ([Id] = 1)");
         }
 
         [Fact]
         public void AndSpec()
         {
             var byProductId = new ProductSpec(1);
-            //var byName = new ProductSpecification().ByName;
-            var productQuery = new Query(nameof(Product)).Where(byProductId);
+            var byName = new ProductSpecification().ByName;
+            var productQuery = new Query(nameof(Product)).Where(byProductId.And(byName("product")));
             var query = Compile(productQuery);
-            query.Should().BeEquivalentTo("SELECT [id], [name] FROM [Product] WHERE [Id] = 1");
+            query[EngineCodes.SqlServer].Should().BeEquivalentTo("SELECT * FROM [Product] WHERE ([Id] = 1 AND [Name] = 'product')");
         }
 
         [Fact]
